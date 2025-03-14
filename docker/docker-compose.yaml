@@ -467,7 +467,7 @@ services:
                -c 'effective_cache_size=${POSTGRES_EFFECTIVE_CACHE_SIZE:-4096MB}'
     volumes:
 #      - ./volumes/db/data:/var/lib/postgresql/data
-      - /root/dify/docker/volumes/db/data:/var/lib/postgresql/data
+      - /root/dify/dify-0.15.3/docker/volumes/db/data:/var/lib/postgresql/data
     healthcheck:
       test: [ 'CMD', 'pg_isready' ]
       interval: 1s
