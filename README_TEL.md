@@ -62,5 +62,5 @@ docker run --name searxng-1 -d -p 8081:8080 -v "${PWD}/api/core/tools/provider/b
 
   https://github.com/brightwang/dify-sandbox-use-check-permissions
 
-  注意在容器内 `/dependencies/code` 目录下，运行 `bash test.sh` 命令之前，先运行 `sed -i 's/\r$//' test.sh`，来删除所有 `\r` 字符
+  注意在容器内 `docker/volumes/sandbox/dependencies/code` 目录下，运行 `bash test.sh` 命令之前，先运行 `sed -i 's/\r$//' test.sh`，来删除所有 `\r` 字符
 
