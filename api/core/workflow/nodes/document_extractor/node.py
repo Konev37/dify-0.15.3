@@ -14,6 +14,7 @@ import pypdfium2  # type: ignore
 import yaml  # type: ignore
 from docx.table import Table
 from docx.text.paragraph import Paragraph
+import subprocess
 
 from configs import dify_config
 from core.file import File, FileTransferMethod, file_manager
@@ -107,8 +108,10 @@ def _extract_text_by_mime_type(*, file_content: bytes, mime_type: str) -> str:
             return _extract_text_from_plain_text(file_content)
         case "application/pdf":
             return _extract_text_from_pdf(file_content)
-        case "application/vnd.openxmlformats-officedocument.wordprocessingml.document" | "application/msword":
-            return _extract_text_from_doc(file_content)
+        case "application/msword":
+            return _extract_text_from_doc_legacy(file_content)
+        case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+            return _extract_text_from_docx(file_content)
         case "text/csv":
             return _extract_text_from_csv(file_content)
         case "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" | "application/vnd.ms-excel":
@@ -142,8 +145,10 @@ def _extract_text_by_file_extension(*, file_content: bytes, file_extension: str)
             return _extract_text_from_yaml(file_content)
         case ".pdf":
             return _extract_text_from_pdf(file_content)
-        case ".doc" | ".docx":
-            return _extract_text_from_doc(file_content)
+        case ".doc":
+            return _extract_text_from_doc_legacy(file_content)
+        case ".docx":
+            return _extract_text_from_docx(file_content)
         case ".csv":
             return _extract_text_from_csv(file_content)
         case ".xls" | ".xlsx":
@@ -201,7 +206,27 @@ def _extract_text_from_pdf(file_content: bytes) -> str:
         raise TextExtractionError(f"Failed to extract text from PDF: {str(e)}") from e
 
 
-def _extract_text_from_doc(file_content: bytes) -> str:
+def _extract_text_from_doc_legacy(file_content: bytes) -> str:
+    """使用antiword从DOC文件提取文本"""
+    try:
+        # 创建临时文件保存内容
+        with tempfile.NamedTemporaryFile(suffix=".doc", delete=False) as temp_file:
+            temp_file.write(file_content)
+            temp_file_path = temp_file.name
+
+        # 使用antiword提取文本
+        result = subprocess.run(['antiword', temp_file_path], capture_output=True, text=True)
+        text = result.stdout
+
+        # 删除临时文件
+        os.unlink(temp_file_path)
+
+        return text
+    except Exception as e:
+        raise TextExtractionError(f"提取DOC文件文本失败: {str(e)}") from e
+
+
+def _extract_text_from_docx(file_content: bytes) -> str:
     """
     Extract text from a DOC/DOCX file.
     For now support only paragraph and table add more if needed

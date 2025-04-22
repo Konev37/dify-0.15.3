@@ -2,10 +2,11 @@ services:
   # The postgres database.
   db:
     image: postgres:15-alpine
-    restart: always
+    restart: no
     env_file:
       - ./middleware.env
     environment:
+      PGUSER: ${PGUSER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-difyai123456}
       POSTGRES_DB: ${POSTGRES_DB:-dify}
       PGDATA: ${PGDATA:-/var/lib/postgresql/data/pgdata}
@@ -16,7 +17,7 @@ services:
                -c 'maintenance_work_mem=${POSTGRES_MAINTENANCE_WORK_MEM:-64MB}'
                -c 'effective_cache_size=${POSTGRES_EFFECTIVE_CACHE_SIZE:-4096MB}'
     volumes:
-      - ${PGDATA_HOST_VOLUME:-./volumes/db/data}:/var/lib/postgresql/data
+      - ${PGDATA_HOST_VOLUME:-/root/dify/dify-0.15.3/docker/volumes/db/data}:/var/lib/postgresql/data
     ports:
       - "${EXPOSE_POSTGRES_PORT:-5432}:5432"
     healthcheck:
@@ -28,7 +29,7 @@ services:
   # The redis cache.
   redis:
     image: redis:6-alpine
-    restart: always
+    restart: no
     environment:
       REDISCLI_AUTH: ${REDIS_PASSWORD:-difyai123456}
     volumes:
@@ -44,7 +45,7 @@ services:
   # The DifySandbox
   sandbox:
     image: langgenius/dify-sandbox:0.2.10
-    restart: always
+    restart: no
     environment:
       # The DifySandbox configurations
       # Make sure you are changing this key for your deployment with a strong key.
@@ -69,7 +70,7 @@ services:
   # https://docs.dify.ai/learn-more/faq/install-faq#id-18.-why-is-ssrf_proxy-needed
   ssrf_proxy:
     image: ubuntu/squid:latest
-    restart: always
+    restart: no
     volumes:
       - ./ssrf_proxy/squid.conf.template:/etc/squid/squid.conf.template
       - ./ssrf_proxy/docker-entrypoint.sh:/docker-entrypoint-mount.sh
@@ -94,7 +95,7 @@ services:
     profiles:
       - ""
       - weaviate
-    restart: always
+    restart: no
     volumes:
       # Mount the Weaviate data directory to the container.
       - ${WEAVIATE_HOST_VOLUME:-./volumes/weaviate}:/var/lib/weaviate
