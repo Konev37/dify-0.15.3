@@ -15,6 +15,8 @@ import yaml  # type: ignore
 from docx.table import Table
 from docx.text.paragraph import Paragraph
 import subprocess
+from core.workflow.nodes.document_extractor.wps_to_md.wps2md import wps2md
+import shutil
 
 from configs import dify_config
 from core.file import File, FileTransferMethod, file_manager
@@ -108,6 +110,8 @@ def _extract_text_by_mime_type(*, file_content: bytes, mime_type: str) -> str:
             return _extract_text_from_plain_text(file_content)
         case "application/pdf":
             return _extract_text_from_pdf(file_content)
+        case "application/octet-stream":
+            return _extract_text_from_wps(file_content)
         case "application/msword":
             return _extract_text_from_doc_legacy(file_content)
         case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
@@ -145,6 +149,8 @@ def _extract_text_by_file_extension(*, file_content: bytes, file_extension: str)
             return _extract_text_from_yaml(file_content)
         case ".pdf":
             return _extract_text_from_pdf(file_content)
+        case ".wps":
+            return _extract_text_from_wps(file_content)
         case ".doc":
             return _extract_text_from_doc_legacy(file_content)
         case ".docx":
@@ -204,6 +210,33 @@ def _extract_text_from_pdf(file_content: bytes) -> str:
         return text
     except Exception as e:
         raise TextExtractionError(f"Failed to extract text from PDF: {str(e)}") from e
+
+
+def _extract_text_from_wps(file_content: bytes) -> str:
+    """
+    Extract text from a WPS file by converting it to Markdown.
+    """
+    try:
+        # 创建临时文件保存 WPS 文件内容
+        with tempfile.NamedTemporaryFile(suffix=".wps", delete=False) as temp_wps_file:
+            temp_wps_file.write(file_content)
+            temp_wps_path = temp_wps_file.name
+
+        # 创建临时输出目录
+        output_dir = tempfile.mkdtemp()
+        output_path = os.path.join(output_dir, "output.md")
+
+        # 调用 wps2md 进行转换
+        markdown_content, _ = wps2md(temp_wps_path, output_path)
+
+        # 删除临时文件和目录
+        os.unlink(temp_wps_path)
+        shutil.rmtree(output_dir)
+
+        return markdown_content
+    except Exception as e:
+        raise TextExtractionError(f"Failed to extract text from WPS file: {str(e)}") from e
+
 
 
 def _extract_text_from_doc_legacy(file_content: bytes) -> str:
