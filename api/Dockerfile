@@ -54,7 +54,9 @@ ENV TZ=UTC
 WORKDIR /app/api
 
 RUN \
-    apt-get update \
+    # If located in China, use aliyun mirror to speed up apt
+    sed -i 's@deb.debian.org@mirrors.aliyun.com@g' /etc/apt/sources.list.d/debian.sources \
+    && apt-get update \
     # Install dependencies
     && apt-get install -y --no-install-recommends \
         # basic environment
@@ -67,6 +69,8 @@ RUN \
         libmagic1 \
         # Install antiword for processing .doc files
         antiword \
+        # Install libreoffice for processing .wps files
+        libreoffice \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
