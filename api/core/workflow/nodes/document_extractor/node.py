@@ -238,25 +238,95 @@ def _extract_text_from_wps(file_content: bytes) -> str:
         raise TextExtractionError(f"Failed to extract text from WPS file: {str(e)}") from e
 
 
-
 def _extract_text_from_doc_legacy(file_content: bytes) -> str:
-    """使用antiword从DOC文件提取文本"""
+    """从DOC文件提取文本，使用多种方法增强对中文文档的支持"""
     try:
         # 创建临时文件保存内容
         with tempfile.NamedTemporaryFile(suffix=".doc", delete=False) as temp_file:
             temp_file.write(file_content)
             temp_file_path = temp_file.name
 
-        # 使用antiword提取文本
-        result = subprocess.run(['antiword', temp_file_path], capture_output=True, text=True)
-        text = result.stdout
+        # 首先尝试使用LibreOffice转换
+        with tempfile.TemporaryDirectory() as temp_dir:
+            try:
+                cmd = ['soffice', '--headless', '--convert-to', 'txt:Text', '--outdir', temp_dir, temp_file_path]
+                process = subprocess.run(cmd, capture_output=True, timeout=30)
+
+                if process.returncode == 0:
+                    # 尝试多种编码读取转换后的txt文件
+                    txt_path = os.path.join(temp_dir, os.path.basename(temp_file_path).replace('.doc', '.txt'))
+                    for encoding in ['utf-8', 'gbk', 'gb18030']:
+                        try:
+                            with open(txt_path, 'r', encoding=encoding) as f:
+                                text = f.read()
+                                # 清理临时文件
+                                os.unlink(temp_file_path)
+                                # 格式化为Markdown并返回
+                                return _format_doc_text_to_markdown(text)
+                        except UnicodeDecodeError:
+                            continue
+            except (subprocess.SubprocessError, FileNotFoundError):
+                # 如果LibreOffice不可用，继续使用antiword
+                pass
+
+        # 如果LibreOffice转换失败，使用antiword作为备选方案
+        # 首先尝试指定UTF-8编码
+        result = subprocess.run(['antiword', '-m', 'UTF-8.txt', temp_file_path], capture_output=True)
+
+        # 如果失败，再尝试不指定编码
+        if result.returncode != 0:
+            result = subprocess.run(['antiword', temp_file_path], capture_output=True)
+
+        # 尝试多种编码解码文本
+        text = None
+        encodings = ['utf-8', 'gbk', 'gb18030', 'gb2312', 'latin1']
+
+        for encoding in encodings:
+            try:
+                text = result.stdout.decode(encoding)
+                # 验证解码是否成功包含中文字符
+                if any(ord(c) > 127 for c in text):
+                    break
+            except UnicodeDecodeError:
+                continue
+
+        # 如果所有编码都失败，使用latin1作为最后的选择
+        if text is None:
+            text = result.stdout.decode('latin1', errors='ignore')
 
         # 删除临时文件
         os.unlink(temp_file_path)
 
-        return text
+        # 格式化为Markdown并返回
+        return _format_doc_text_to_markdown(text)
+
     except Exception as e:
+        # 确保清理临时文件
+        try:
+            os.unlink(temp_file_path)
+        except:
+            pass
         raise TextExtractionError(f"提取DOC文件文本失败: {str(e)}") from e
+
+
+def _format_doc_text_to_markdown(text):
+    """将提取的文本格式化为Markdown格式"""
+    if not text:
+        return ""
+
+    lines = text.split('\n')
+    formatted_lines = []
+
+    for line in lines:
+        line = line.strip()
+        if line:
+            # 保留原始格式
+            formatted_lines.append(line)
+        else:
+            # 保留空行
+            formatted_lines.append('')
+
+    return '\n'.join(formatted_lines)
 
 
 def _extract_text_from_docx(file_content: bytes) -> str:

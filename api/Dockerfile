@@ -33,7 +33,18 @@ COPY pyproject.toml poetry.lock ./
 ENV PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
 ENV PIP_EXTRA_INDEX_URL="https://pypi.tuna.tsinghua.edu.cn/simple/ https://pypi.doubanio.com/simple/"
 
-RUN poetry install --sync --no-cache --no-root
+# 配置 Poetry 使用国内镜像源
+RUN poetry config repositories.aliyun https://mirrors.aliyun.com/pypi/simple/
+RUN poetry config repositories.tsinghua https://pypi.tuna.tsinghua.edu.cn/simple/
+RUN poetry config repositories.douban https://pypi.doubanio.com/simple/
+
+# 设置优先级
+RUN poetry source add --priority primary aliyun https://mirrors.aliyun.com/pypi/simple/
+
+# 先更新锁文件，保持依赖一致性
+RUN poetry lock
+# 然后再执行安装
+RUN poetry install --no-cache --no-root
 
 # production stage
 FROM base AS production
